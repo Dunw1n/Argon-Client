@@ -13,13 +13,6 @@ export default function AppLayout() {
       <Stack.Screen name="chat/[id]" />
       <Stack.Screen name="profile" />
       <Stack.Screen 
-        name="add-user" 
-        options={{ 
-          presentation: 'modal',
-          animation: 'slide_from_bottom', 
-        }} 
-      />
-      <Stack.Screen 
         name="settings" 
         options={{ 
           presentation: 'modal',
@@ -28,20 +21,6 @@ export default function AppLayout() {
       />
       <Stack.Screen 
         name="add-by-username" 
-        options={{ 
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
-        }} 
-      />
-      <Stack.Screen 
-        name="channels" 
-        options={{ 
-          presentation: 'modal',
-          animation: 'slide_from_bottom',
-        }} 
-      />
-      <Stack.Screen 
-        name="create-group" 
         options={{ 
           presentation: 'modal',
           animation: 'slide_from_bottom',

@@ -37,24 +37,25 @@ export default function ChatsScreen() {
   if (loading && !chatsLoaded) return <Loading />;
   
   return (
-    <View style={styles.container}>
-      <ChatHeader />
-      
-      <FlatList
-        data={chats}
-        keyExtractor={keyExtractor}
-        renderItem={renderChatItem}
-        refreshControl={ <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> }
-        ListEmptyComponent={EmptyComponent}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={true}
-      />
-      
-      <BottomTabBar />
-    </View>
+      <View style={styles.container}>
+        <ChatHeader />
+        
+        <FlatList
+          data={chats}
+          keyExtractor={keyExtractor}
+          renderItem={renderChatItem}
+          refreshControl={ <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> }
+          ListEmptyComponent={EmptyComponent}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
+        />
+        
+        <BottomTabBar />
+
+      </View>
   );
 }
 
@@ -64,7 +65,8 @@ const renderChatItem = ({ item }: any) => <ChatItem chat={item} />;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+    position: 'relative'
   },
   emptyContainer: {
     flex: 1,

@@ -1,29 +1,42 @@
 // app/(app)/settings.tsx
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from "expo-image";
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBar } from '@/src/shared/components';
 import { useMemo } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GradientWhiteToTransparent from '@/src/shared/components/GradientWhiteToTransparent';
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
 
-  const settingsItems = useMemo(() => [
-    { id: 1, title: 'Уведомления', description: 'Push-уведомления, звуки, вибрация', icon: 'notifications-outline', colors: ['#AA2BFF', '#6421FF'] },
-    { id: 2, title: 'Конфиденциальность', description: 'Кто может видеть ваш профиль, статус онлайн', icon: 'lock-closed-outline', colors: ['#2B2EFF', '#2181FF'] },
-    { id: 3, title: 'Безопасность', description: 'Двухфакторная аутентификация, сессии', icon: 'shield-checkmark-outline', colors: ['#FF2BB8', '#C61EE0'] },
-    { id: 4, title: 'Внешний вид', description: 'Тема, цвет акцентов, шрифты', icon: 'color-palette-outline', colors: ['#FF2B36', '#FF217A'] },
-    { id: 5, title: 'Язык и регион', description: 'Русский, English', icon: 'language-outline', colors: ['#FFBC2B', '#FF7E21'] },
-    { id: 6, title: 'Хранилище', description: 'Кэш, медиафайлы, документы', icon: 'cloud-outline', colors: ['#87FF5C', '#37A814'] },
-    { id: 7, title: 'О приложении', description: 'Версия 1.0.0, Лицензионное соглашение', icon: 'information-circle-outline', colors: ['#8b5cf6', '#a78bfa'] },
-  ], []);
+const settingsItems = useMemo(() => [
+  { id: 1, title: 'Уведомления', description: 'Push-уведомления, звуки, вибрация', icon: 'notifications-outline', colors: ['#AA2BFF', '#6421FF'] },
+  { id: 2, title: 'Конфиденциальность', description: 'Кто может видеть ваш профиль, статус онлайн', icon: 'lock-closed-outline', colors: ['#2B2EFF', '#2181FF'] },
+  { id: 3, title: 'Безопасность', description: 'Двухфакторная аутентификация, сессии', icon: 'shield-checkmark-outline', colors: ['#FF2BB8', '#C61EE0'] },
+  { id: 4, title: 'Внешний вид', description: 'Тема, цвет акцентов, шрифты', icon: 'color-palette-outline', colors: ['#FF2B36', '#FF217A'] },
+  { id: 5, title: 'Аватары и медиа', description: 'Загрузка фото, качество изображений, автозагрузка', icon: 'images-outline', colors: ['#36D1DC', '#5B86E5'] },
+  { id: 6, title: 'Контакты', description: 'Синхронизация, черный список', icon: 'people-outline', colors: ['#FF9A44', '#FC6076'] },
+  { id: 7, title: 'Резервное копирование', description: 'Чат бекап, восстановление', icon: 'archive-outline', colors: ['#43CBFF', '#9708CC'] },
+  { id: 8, title: 'Язык и регион', description: 'Русский, English', icon: 'language-outline', colors: ['#FFBC2B', '#FF7E21'] },
+  { id: 9, title: 'Хранилище', description: 'Кэш, медиафайлы, документы', icon: 'cloud-outline', colors: ['#87FF5C', '#37A814'] },
+  { id: 10, title: 'О приложении', description: 'Версия 1.0.0, Лицензионное соглашение', icon: 'information-circle-outline', colors: ['#8b5cf6', '#a78bfa'] },
+  
+  // Дополнительные важные пункты
+  { id: 11, title: 'Данные и экономия', description: 'Экономия трафика, качество медиа', icon: 'cellular-outline', colors: ['#4ECDC4', '#44A08D'] },
+  { id: 12, title: 'Звуки и вибрация', description: 'Настройка звуковых профилей', icon: 'musical-notes-outline', colors: ['#FF6B6B', '#EE5A24'] },
+  { id: 13, title: 'Стикеры и GIF', description: 'Управление наборами стикеров', icon: 'happy-outline', colors: ['#A8E6CF', '#3B8D99'] },
+  { id: 14, title: 'Помощь и поддержка', description: 'FAQ, обратная связь', icon: 'help-circle-outline', colors: ['#FF9966', '#FF5E62'] },
+], []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']} mode="padding">
+    <>
+      <GradientWhiteToTransparent height={insets.top + 50} style={{ top: 0, left: 0, right: 0, }} />
+    
       <ScrollView 
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 15, paddingBottom: insets.bottom + 70 }]}
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Настройки приложения</Text>
@@ -137,8 +150,9 @@ export default function SettingsScreen() {
           </LinearGradient>
         </View>
       </ScrollView>
+
       <BottomTabBar />
-    </SafeAreaView>
+    </>
   );
 }
 
@@ -182,7 +196,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#fff',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 10,
     gap: 14,
   },
   iconGradient: {

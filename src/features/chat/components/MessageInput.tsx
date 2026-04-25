@@ -1,11 +1,7 @@
-// src/features/chat/components/MessageInput.tsx
-import { View, TextInput, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useState, useCallback, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { useTyping } from '../hooks';
-import { useDebounce } from '@/src/shared/hooks';
 
 interface MessageInputProps {
   onSend: (text: string) => void;
@@ -15,122 +11,78 @@ interface MessageInputProps {
 
 export const MessageInput = ({ onSend, onTyping, disabled }: MessageInputProps) => {
   const [message, setMessage] = useState('');
-  const [inputHeight, setInputHeight] = useState(36);
-  const [isSending, setIsSending] = useState(false);
-  const { handleTyping, stopTyping } = useTyping(onTyping);
-  
-  const sendButtonScale = useRef(new Animated.Value(1)).current;
-  const inputOpacity = useRef(new Animated.Value(1)).current;
-  
-  const debouncedSend = useDebounce((text: string) => {
-    onSend(text);
-    setIsSending(false);
-    Animated.parallel([
-      Animated.spring(sendButtonScale, {
-        toValue: 1,
-        friction: 3,
-        useNativeDriver: true,
-      }),
-      Animated.timing(inputOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, 300);
+  const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const inputRef = useRef<TextInput>(null);
 
   const handleChangeText = useCallback((text: string) => {
     setMessage(text);
-    handleTyping(text);
-  }, [handleTyping]);
+    
+    if (text.length > 0) {
+      onTyping(true);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      typingTimeoutRef.current = setTimeout(() => {
+        onTyping(false);
+      }, 1000);
+    } else {
+      onTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }
+  }, [onTyping]);
 
   const handleSend = useCallback(() => {
     const trimmedMessage = message.trim();
-    if (trimmedMessage.length === 0 || isSending) return;
+    if (trimmedMessage.length === 0 || disabled) return;
     
-    setIsSending(true);
-    
-    Animated.parallel([
-      Animated.spring(sendButtonScale, {
-        toValue: 0.8,
-        friction: 5,
-        useNativeDriver: true,
-      }),
-      Animated.timing(inputOpacity, {
-        toValue: 0.5,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-    ]).start();
-    
-    debouncedSend(trimmedMessage);
-    setMessage('');
-    setInputHeight(36);
-    stopTyping();
-  }, [message, debouncedSend, stopTyping, isSending]);
-
-  const handleContentSizeChange = (event: any) => {
-    const newHeight = event.nativeEvent.contentSize.height;
-    const maxHeight = 100;
-    const minHeight = 36;
-    
-    if (newHeight < minHeight) {
-      setInputHeight(minHeight);
-    } else if (newHeight > maxHeight) {
-      setInputHeight(maxHeight);
-    } else {
-      setInputHeight(newHeight);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
     }
-  };
+    onTyping(false);
+    onSend(trimmedMessage);
+    setMessage('');
+  }, [message, onSend, onTyping, disabled]);
 
-  const isSendDisabled = !message.trim() || disabled || isSending;
+  const isSendDisabled = !message.trim() || disabled;
 
   return (
     <View style={styles.container}>
-      <BlurView intensity={60} tint="light" style={styles.inputBlur}>
-        <View style={styles.inputContainer}>
-          <Animated.View style={{ flex: 1, opacity: inputOpacity }}>
-            <TextInput
-              style={[styles.input, { height: inputHeight }]}
-              placeholder="Сообщение..."
-              placeholderTextColor="#999"
-              value={message}
-              onChangeText={handleChangeText}
-              multiline
-              editable={!disabled && !isSending}
-              maxLength={1000}
-              onContentSizeChange={handleContentSizeChange}
-              scrollEnabled={inputHeight >= 100}
-              textAlignVertical="center"
-            />
-          </Animated.View>
-          
-          <Animated.View style={{ transform: [{ scale: sendButtonScale }] }}>
-            <TouchableOpacity 
-              style={[styles.sendButton, isSendDisabled && styles.sendButtonDisabled]}
-              onPress={handleSend}
-              disabled={isSendDisabled}
-              activeOpacity={0.7}
-            >
-              <Image 
-                source={require('@/assets/images/components-chat/send-button.png')}
-                style={styles.sendIcon}
-                contentFit="contain"
-              />
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </BlurView>
-      
-      <BlurView intensity={60} tint="light" style={styles.micBlur}>
+      <View style={styles.inputWrapper}>
+        <TextInput
+          ref={inputRef}
+          style={styles.input}
+          placeholder="Сообщение..."
+          placeholderTextColor="#999"
+          value={message}
+          onChangeText={handleChangeText}
+          multiline
+          editable={!disabled}
+          maxLength={1000}
+        />
+        
         <TouchableOpacity 
-          style={styles.micButton}
-          onPress={() => {}}
+          style={[styles.sendButton, isSendDisabled && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={isSendDisabled}
           activeOpacity={0.7}
         >
-          <Ionicons name="mic-outline" size={22} color="#4c1d95" />
+          <Image 
+            source={require('@/assets/images/components-chat/send-button.png')}
+            style={styles.sendIcon}
+            contentFit="contain"
+          />
         </TouchableOpacity>
-      </BlurView>
+      </View>
+      
+      <TouchableOpacity 
+        style={styles.micButton}
+        onPress={() => {}}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="mic-outline" size={22} color="#4c1d95" />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -138,33 +90,34 @@ export const MessageInput = ({ onSend, onTyping, disabled }: MessageInputProps) 
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     gap: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
+    zIndex: 11
   },
-  inputBlur: {
-    flex: 1,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-  },
-  inputContainer: {
+  inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 24,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
     paddingLeft: 16,
     paddingRight: 8,
-    height: 48,
+    paddingVertical: 4,
+    minHeight: 44,
   },
   input: {
     flex: 1,
     backgroundColor: 'transparent',
-    paddingVertical: 0,
+    paddingVertical: Platform.OS === 'ios' ? 8 : 4,
+    paddingHorizontal: 0,
     fontSize: 16,
-    maxHeight: 100,
     color: '#333',
+    maxHeight: 100,
   },
   sendButton: {
     width: 32,
@@ -173,6 +126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
+    marginLeft: 8,
   },
   sendButtonDisabled: {
     opacity: 0.5,
@@ -181,19 +135,14 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  micBlur: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-  },
   micButton: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
   },
 });

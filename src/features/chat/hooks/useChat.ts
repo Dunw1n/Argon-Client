@@ -1,5 +1,6 @@
-// src/features/chat/hooks/useChat.ts
+// src/features/chat/hooks/useChat.ts (расширенная версия)
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Keyboard, AppState } from 'react-native';
 import { useChatStore, useAuthStore } from '@/src/infrastructure/store';
 import { useTyping } from './useTyping';
 
@@ -9,6 +10,7 @@ export const useChat = (chatId?: string) => {
   const { user } = useAuthStore();
   const flatListRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   
   const {
     messages,
@@ -54,6 +56,32 @@ export const useChat = (chatId?: string) => {
     }, SCROLL_DELAY);
   }, []);
 
+  // 👇 НОВЫЙ ХУК: обработка клавиатуры
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => {
+      setIsKeyboardVisible(true);
+      scrollToEnd();
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      setIsKeyboardVisible(false);
+      scrollToEnd();
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, [scrollToEnd]);
+
+  // 👇 НОВЫЙ ХУК: авто-скролл при новых сообщениях
+  useEffect(() => {
+    if (messages?.length) scrollToEnd();
+  }, [messages, scrollToEnd]);
+
+  // 👇 НОВЫЙ ХУК: скролл при возврате из фона
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') scrollToEnd();
+    });
+    return () => subscription.remove();
+  }, [scrollToEnd]);
+
   useEffect(() => {
     if (!chatId) return;
     loadChat();
@@ -75,5 +103,6 @@ export const useChat = (chatId?: string) => {
     scrollToEnd,
     isLoading,
     unreadCount,
+    isKeyboardVisible, 
   };
 };

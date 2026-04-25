@@ -7,12 +7,11 @@ import { StatusIcon } from './StatusIcon';
 import type { Message } from '@/src/core/entities';
 
 const { width: screenWidth } = Dimensions.get('window');
-const MAX_WIDTH = screenWidth * 0.70;
+const MAX_WIDTH = screenWidth * 0.75;
 const MIN_WIDTH = 50;
 
 interface MessageBubbleProps {
   message: Message;
-  index?: number;
 }
 
 export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
@@ -23,11 +22,6 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
   
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  
-  const formattedTime = useMemo(() => {
-    const date = message.created_at;
-    return formatMessageTime(date);
-  }, [message.created_at]);
 
   useEffect(() => {
     Animated.parallel([
@@ -38,12 +32,17 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
       }),
       Animated.spring(scaleAnim, {
         toValue: 1,
-        friction: 8,
-        tension: 40,
+        friction: 7,
+        tension: 35,
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [opacityAnim, scaleAnim]);
+
+  const formattedTime = useMemo(() => {
+    const date = new Date(message.created_at);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }, [message.created_at]);
 
   return (
     <Animated.View 
@@ -67,13 +66,25 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
           {message.text}
         </Text>
         
-        <View style={[styles.bottomRow, isOwn && styles.ownBottomRow]}>
-          <Text style={[styles.time, isOwn && styles.ownTime]}>
-            {formattedTime}
-          </Text>
+        <View style={[styles.bottomRow, isOwn && styles.bottomRowOwn]}>
+          {!isOwn && (
+            <Text style={[styles.time, styles.otherTime]}>
+              {formattedTime}
+            </Text>
+          )}
           
-          <View style={styles.statusContainer}>
-            {isOwn && <StatusIcon status={message.status} isPending={isPending} />}
+          <View style={styles.rightGroup}>
+            {isOwn && (
+              <Text style={[styles.time, styles.ownTime]}>
+                {formattedTime}
+              </Text>
+            )}
+            
+            {isOwn && (
+              <View style={styles.statusContainer}>
+                <StatusIcon status={message.status} isPending={isPending} />
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -82,9 +93,9 @@ export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
 }, (prevProps, nextProps) => {
   return prevProps.message.id === nextProps.message.id &&
          prevProps.message.text === nextProps.message.text &&
-         prevProps.message.isPending === nextProps.message.isPending &&
          prevProps.message.status === nextProps.message.status &&
-         prevProps.message.created_at === nextProps.message.created_at
+         prevProps.message.isPending === nextProps.message.isPending &&
+         prevProps.message.created_at === nextProps.message.created_at;
 });
 
 MessageBubble.displayName = 'MessageBubble';
@@ -93,6 +104,7 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: 4,
     alignItems: 'flex-start',
+    paddingHorizontal: 8,
   },
   ownContainer: {
     alignItems: 'flex-end',
@@ -100,54 +112,62 @@ const styles = StyleSheet.create({
   bubble: {
     maxWidth: MAX_WIDTH,
     minWidth: MIN_WIDTH,
-    paddingVertical: 6,
+    paddingVertical: 4,
     paddingHorizontal: 10,
-    borderRadius: 11,
+    borderRadius: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 1,
-    elevation: 0.5,
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   ownBubble: {
     backgroundColor: '#8b5cf6',
     borderBottomRightRadius: 4,
   },
   otherBubble: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f1f3f5',
     borderBottomLeftRadius: 4,
   },
   pendingBubble: {
-    backgroundColor: '#c4b5fd',
-    opacity: 0.85,
+    backgroundColor: '#a78bfa',
+    opacity: 0.9,
   },
   text: {
     fontSize: 15,
     lineHeight: 20,
-    flexWrap: 'wrap',
+    color: '#1a1a1a',
+    flexShrink: 1,
   },
   ownText: {
-    color: '#fff',
+    color: '#ffffff',
   },
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginTop: 2,
-    gap: 4,
+    justifyContent: 'space-between', // Меняем на space-between
   },
-  ownBottomRow: {
-    justifyContent: 'flex-end',
+  bottomRowOwn: {
+    justifyContent: 'flex-end', // Для своих сообщений время справа
+  },
+  rightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   time: {
     fontSize: 10,
-    color: '#999',
+    letterSpacing: 0.2,
   },
   ownTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
+  otherTime: {
+    color: '#8e8e93',
   },
   statusContainer: {
-    minWidth: 18,
+    width: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

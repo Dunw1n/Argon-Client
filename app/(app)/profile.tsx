@@ -1,12 +1,14 @@
 // app/(app)/profile.tsx
 import { Text, ScrollView, TouchableOpacity, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProfileHeader, ActionButtons, InfoSection, DetailInfo, BioSection } from '@/src/features/profile/components';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomTabBar, Loading } from '@/src/shared/components';
 import { useProfile } from '@/src/features/profile/hooks';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GradientWhiteToTransparent from '@/src/shared/components/GradientWhiteToTransparent';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const {
     user,
     phone,
@@ -34,10 +36,11 @@ export default function ProfileScreen() {
 
   return (
     <>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
+      <GradientWhiteToTransparent height={insets.top + 10} style={{ top: 0, left: 0, right: 0, }} />
+    
+      <ScrollView 
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top, paddingBottom: insets.bottom + 90 }]}
         >
           <ProfileHeader 
             name={user?.name || 'Mister'} 
@@ -84,8 +87,8 @@ export default function ProfileScreen() {
             <Ionicons name="log-out-outline" size={20} color="#ef4444" />
             <Text style={styles.logoutText}>Выйти с аккаунта</Text>
           </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
+      </ScrollView>
+
       <BottomTabBar />
     </>
   );
@@ -95,7 +98,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f3f3f3',
-    paddingHorizontal: 15,
   },
   loadingContainer: {
     flex: 1,
@@ -122,6 +124,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+    paddingHorizontal: 15
   },
   privacyLink: {
     paddingVertical: 15,

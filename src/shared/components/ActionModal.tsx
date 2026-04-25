@@ -39,23 +39,7 @@ export const ActionModal = ({ visible, onClose }: ActionModalProps) => {
       icon: 'chatbubble-outline',
       iconColors: ['#AA2BFF', '#6421FF'],
       onPress: () => router.push('/add-by-username'),
-    },
-    {
-      id: 'group',
-      title: 'Новая группа',
-      subtitle: 'Создайте группу, и общайтесь с людьми',
-      icon: 'people-outline',
-      iconColors: ['#2B2EFF', '#2181FF'],
-      onPress: () => router.push('/create-group'),
-    },
-    {
-      id: 'channel',
-      title: 'Новый канал',
-      subtitle: 'Присоединяйтесь к популярным каналам',
-      icon: 'megaphone-outline',
-      iconColors: ['#FF2BB8', '#C61EE0'],
-      onPress: () => router.push('/channels'),
-    },
+    }
   ], []);
 
   const handleItemPress = useCallback((item: ActionItem) => {

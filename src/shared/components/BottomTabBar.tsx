@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePathname, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActionModal } from './ActionModal';
+import GradientWhiteToTransparent from './GradientWhiteToTransparent';
 
 interface TabItem {
   name: string;
@@ -45,17 +46,11 @@ export const BottomTabBar = memo(() => {
     router.push('/add-by-username');
   };
 
-  const handleNewContact = () => {
-    router.push('/create-group');
-  };
 
-  const handleNewChannel = () => {
-    router.push('/channels');
-  };
 
   return (
     <>
-      <View style={[styles.container, { paddingBottom: insets.bottom + 5 }]}>
+      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
         <View style={styles.content}>
           {tabs.map((tab) => (
             <TouchableOpacity
@@ -77,14 +72,16 @@ export const BottomTabBar = memo(() => {
             </TouchableOpacity>
           ))}
         </View>
+
+
       </View>
+
+      <GradientWhiteToTransparent startOpacity={0} endOpacity={1} height={insets.bottom + 40} style={{ bottom: 0, left: 0, right: 0 }} />
 
       <ActionModal
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onNewChat={handleNewChat}
-        onNewContact={handleNewContact}
-        onNewChannel={handleNewChannel}
       />
     </>
   );
@@ -94,15 +91,22 @@ BottomTabBar.displayName = 'BottomTabBar';
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#fff',
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 4,
+    position: 'absolute',
+    left: 0,
+    bottom: 5,
+    right: 0,
+    paddingHorizontal: 15,
+    zIndex: 12
   },
   content: {
+    backgroundColor: '#ffffff',
+    borderRadius: 40,
+    borderWidth: 1,
+    borderColor: '#ecececff',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingVertical: 2
   },
   tab: {
     flex: 1,

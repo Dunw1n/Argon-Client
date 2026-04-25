@@ -21,14 +21,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.argon.messenger",
-      "navigationBar": {
-        "visible": "leanback",
-        "backgroundColor": "#00000000",
-        "behavior": "overlay-swipe",
-        "borderColor": "#00000000"
-      },
       "enableProguardInReleaseBuilds": true,
-      "enableShrinkResources": true
+      "enableShrinkResources": true,
+      "softwareKeyboardLayoutMode": "pan"
     },
     "web": {
       "output": "static",

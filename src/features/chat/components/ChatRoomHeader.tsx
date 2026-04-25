@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { useUserStatus } from '../hooks';
 import { getMediaUrl } from '@/src/shared/utils';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ChatRoomHeaderProps {
   chatName: string;
@@ -23,6 +24,9 @@ export const ChatRoomHeader = memo(({
   avatar,
   onInfoPress 
 }: ChatRoomHeaderProps) => {
+
+  const insets = useSafeAreaInsets();
+  
   
   const { status } = useUserStatus(userId, chatId);
 
@@ -37,14 +41,14 @@ export const ChatRoomHeader = memo(({
   const avatarLetter = chatName.charAt(0).toUpperCase();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 5 }]}>
       <View style={styles.content}>
         <TouchableOpacity 
           onPress={handleBack} 
           style={styles.iconButton}
           activeOpacity={0.7}
         >
-          <BlurView intensity={60} tint="light" style={styles.blurWrapper}>
+          <BlurView intensity={100} tint="light" style={styles.blurWrapper}>
             <Ionicons name="arrow-back" size={22} color="#333" />
           </BlurView>
         </TouchableOpacity>
@@ -54,7 +58,7 @@ export const ChatRoomHeader = memo(({
           style={styles.centerBlock}
           activeOpacity={0.7}
         >
-          <BlurView intensity={60} tint="light" style={styles.centerBlur}>
+          <BlurView intensity={100} tint="light" style={styles.centerBlur}>
             <View style={styles.centerContent}>
               {avatar ? (
                 <Image source={{ uri: getMediaUrl(avatar) }} style={styles.avatar} />
@@ -80,7 +84,7 @@ export const ChatRoomHeader = memo(({
           style={styles.iconButton}
           activeOpacity={0.7}
         >
-          <BlurView intensity={60} tint="light" style={styles.blurWrapper}>
+          <BlurView intensity={100} tint="light" style={styles.blurWrapper}>
             <Ionicons name="ellipsis-vertical" size={22} color="#333" />
           </BlurView>
         </TouchableOpacity>
@@ -112,7 +116,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    borderColor: 'rgba(255, 255, 255, 0.8)',
   },
   centerBlock: {
     flex: 1,

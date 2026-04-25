@@ -1,226 +1,118 @@
-// app/(app)/chat/[id].tsx
-import { View, FlatList, Platform, AppState, Keyboard, Animated, StyleSheet } from 'react-native';
+import { View, FlatList, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useMemo } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChat } from '@/src/features/chat/hooks';
-import { useChatStore, useAuthStore } from '@/src/infrastructure/store';
+import { useChatStore } from '@/src/infrastructure/store';
 import { ChatRoomHeader, MessageBubble, MessageInput, ChatBackground } from '@/src/features/chat/components';
 import { Loading } from '@/src/shared/components';
-import { socketService } from '@/src/infrastructure/socket';
 
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { messages, otherParticipant, otherAvatar, flatListRef, sendMessage, handleTyping, scrollToEnd } = useChat(id);
-  const { markChatAsRead, fetchChats } = useChatStore();
-  const { user } = useAuthStore();
-  const insets = useSafeAreaInsets();
-  const isFirstRender = useRef(true);
-  const lastMessageIdRef = useRef<string | null>(null);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const { 
+    messages, 
+    otherParticipant, 
+    otherAvatar, 
+    flatListRef, 
+    sendMessage, 
+    handleTyping, 
+    isLoading, 
+    scrollToEnd
+  } = useChat(id);
   
-  // Анимация для поднятия контента
-  const translateY = useRef(new Animated.Value(0)).current;
-
-  // Улучшенный скролл к концу
-  const safeScrollToEnd = useCallback(() => {
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-    
-    scrollTimeoutRef.current = setTimeout(() => {
-      if (flatListRef.current) {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }
-    }, 50);
-  }, []);
-
-  // Слушаем клавиатуру
-  useEffect(() => {
-    const keyboardWillShow = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-      (e) => {
-        Animated.timing(translateY, {
-          toValue: -e.endCoordinates.height,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => {
-          safeScrollToEnd();
-        });
-      }
-    );
-
-    const keyboardWillHide = Keyboard.addListener(
-      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-      () => {
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 250,
-          useNativeDriver: true,
-        }).start(() => {
-          safeScrollToEnd();
-        });
-      }
-    );
-
-    return () => {
-      keyboardWillShow.remove();
-      keyboardWillHide.remove();
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, [translateY, safeScrollToEnd]);
-
-  // При новом сообщении скроллим
-  useEffect(() => {
-    if (messages && messages.length > 0) {
-      safeScrollToEnd();
-    }
-  }, [messages, safeScrollToEnd]);
-
-  // Возврат из фона
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        safeScrollToEnd();
-      }
-    });
-    return () => subscription.remove();
-  }, [safeScrollToEnd]);
-
-  useEffect(() => {
-    if (isFirstRender.current && id) {
-      markChatAsRead(id);
-      isFirstRender.current = false;
-    }
-  }, [id, markChatAsRead]);
-
-  useEffect(() => {
-    if (!id || !messages || messages.length === 0) return;
-    
-    const lastMessage = messages[messages.length - 1];
-    
-    if (lastMessage.id !== lastMessageIdRef.current && lastMessage.sender_id !== user?.id) {
-      lastMessageIdRef.current = lastMessage.id;
-      
-      if (socketService.isConnected()) {
-        socketService.emit('mark_chat_read', id);
-      }
-      
-      markChatAsRead(id);
-    }
-  }, [messages, id, user, markChatAsRead]);
+  const { fetchChats } = useChatStore();
+  const insets = useSafeAreaInsets();
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
 
   useFocusEffect(
     useCallback(() => {
       return () => {
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
         fetchChats(true);
       };
     }, [fetchChats])
   );
 
-  const onSend = useCallback((text: string) => {
-    if (text.trim()) {
-      sendMessage(text);
-      safeScrollToEnd();
+  // Скроллим при загрузке сообщений
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollToEnd();
+      }, 100);
     }
-  }, [sendMessage, safeScrollToEnd]);
+  }, [messages?.length, scrollToEnd]);
 
-  const onTyping = useCallback((isTyping: boolean) => {
-    handleTyping(isTyping ? ' ' : '');
-  }, [handleTyping]);
-
-  const renderItem = useCallback(({ item, index }: any) => (
-    <MessageBubble message={item} index={index} />
-  ), []);
-
-  const keyExtractor = useCallback((item: any) => item.id || item.tempId, []);
-
-  const chatName = useMemo(() => 
-    otherParticipant?.name || 'Чат', 
-    [otherParticipant?.name]
-  );
-
-  const userId = useMemo(() => 
-    otherParticipant?.id || '', 
-    [otherParticipant?.id]
-  );
-
-  if (!messages) return <Loading />;
+  if (isLoading || !messages) return <Loading />;
 
   return (
     <ChatBackground>
-      <View style={[styles.headerContainer, { paddingTop: insets.top }]}>
+      {/* Header - фиксированный сверху */}
+      <View pointerEvents="box-none" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20 }}>
         <ChatRoomHeader
-          chatName={chatName}
-          userId={userId}
+          chatName={otherParticipant?.name || 'Чат'}
+          userId={otherParticipant?.id || ''}
           chatId={id}
           avatar={otherAvatar}
         />
       </View>
 
-      <Animated.View 
-        style={[
-          styles.animatedContainer,
-          { transform: [{ translateY }] }
-        ]}
+      {/* Основной контент с клавиатурой */}
+      <KeyboardAvoidingView 
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
-        <View style={styles.messagesContainer}>
+        <View style={styles.contentContainer}>
+          {/* FlatList с сообщениями */}
           <FlatList
             ref={flatListRef}
             data={messages}
-            keyExtractor={keyExtractor}
-            renderItem={renderItem}
-            contentContainerStyle={styles.messagesContent}
-            onLayout={safeScrollToEnd}
-            onContentSizeChange={safeScrollToEnd}
+            keyExtractor={(item) => item.id || item.tempId}
+            renderItem={({ item }) => <MessageBubble message={item} />}
+            contentContainerStyle={[
+              styles.messagesList,
+              { 
+                paddingTop: insets.top + 60,
+                paddingBottom: 20,
+              }
+            ]}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => {
+              if (scrollTimeoutRef.current) {
+                clearTimeout(scrollTimeoutRef.current);
+              }
+              scrollTimeoutRef.current = setTimeout(scrollToEnd, 50);
+            }}
             showsVerticalScrollIndicator={false}
-            maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
             initialNumToRender={20}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            removeClippedSubviews={Platform.OS !== 'web'}
           />
-        </View>
 
-        {/* Инпут */}
-        <View style={[styles.inputContainer, { paddingBottom: insets.bottom }]}>
-          <MessageInput
-            onSend={onSend}
-            onTyping={onTyping} 
+          {/* Инпут - всегда внизу */}
+          <MessageInput 
+            onSend={sendMessage} 
+            onTyping={(isTyping) => handleTyping(isTyping ? 'typing...' : '')} 
           />
         </View>
-      </Animated.View>
+      </KeyboardAvoidingView>
     </ChatBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  headerContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    backgroundColor: 'transparent',
-  },
-  animatedContainer: {
+  keyboardView: {
     flex: 1,
-    justifyContent: 'flex-end',
   },
-  messagesContainer: {
+  contentContainer: {
     flex: 1,
-    overflow: "hidden",
-    paddingTop: 13,
+    justifyContent: 'space-between',
   },
-  messagesContent: {
-    paddingHorizontal: 0,
+  messagesList: {
     flexGrow: 1,
     justifyContent: 'flex-end',
-    paddingBottom: 8,
-  },
-  inputContainer: {
-    backgroundColor: 'transparent',
   },
 });

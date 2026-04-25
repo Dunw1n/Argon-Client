@@ -1,7 +1,7 @@
 // app/(app)/user-profile.tsx
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Share, Alert } from 'react-native';
 import { Image } from "expo-image";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useState, useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,7 @@ import { useUserStatus } from '@/src/features/chat/hooks';
 import { getMediaUrl } from '@/src/shared/utils';
 
 export default function UserProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { users, chats } = useChatStore();
   
@@ -90,7 +91,9 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+
+  
       <ScrollView 
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -213,7 +216,8 @@ export default function UserProfileScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+
+        </View>
   );
 }
 

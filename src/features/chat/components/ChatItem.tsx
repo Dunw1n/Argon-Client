@@ -139,7 +139,7 @@ ChatItem.displayName = 'ChatItem';
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     backgroundColor: '#fff',
     borderBottomWidth: 1,

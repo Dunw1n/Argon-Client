@@ -3,8 +3,33 @@ import io, { Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const SERVER_IP = process.env.EXPO_PUBLIC_SERVER_IP || '192.168.1.199';
-const SERVER_PORT = process.env.EXPO_PUBLIC_SERVER_PORT || '3000';
+const getServerConfig = () => {
+  const isDevelopment = __DEV__;
+  
+  if (!isDevelopment) {
+    return {
+      url: 'wss://argon-backend-ibt7.onrender.com',
+      isSecure: true,
+    };
+  }
+  
+  const envIp = process.env.EXPO_PUBLIC_SERVER_IP;
+  const envPort = process.env.EXPO_PUBLIC_SERVER_PORT;
+  
+  if (envIp && envPort) {
+    return {
+      url: `http://${envIp}:${envPort}`,
+      isSecure: false,
+    };
+  }
+  
+  return {
+    url: 'http://192.168.1.199:3000',
+    isSecure: false,
+  };
+};
+
+const { url: SERVER_URL, isSecure: USE_SSL } = getServerConfig();
 
 export type SocketEventMap = {
   online_users: (users: string[]) => void;
@@ -31,28 +56,39 @@ class SocketService {
   private lastMessageTime = 0;
 
   private getSocketUrl(): string {
-    if (Platform.OS === 'android') {
-      return `http://${SERVER_IP}:${SERVER_PORT}`;
-    }
-    if (Platform.OS === 'ios') {
-      return `http://${SERVER_IP}:${SERVER_PORT}`;
-    }
-    return `http://${SERVER_IP}:${SERVER_PORT}`;
+    // Для разных платформ URL одинаковый, убираем лишние проверки
+    console.log(`🔌 Using Socket URL: ${SERVER_URL} (SSL: ${USE_SSL})`);
+    return SERVER_URL;
   }
 
   async connect(): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('token');
-      if (!token || this.socket?.connected) return;
+      if (!token) {
+        console.log('❌ No token found, cannot connect socket');
+        return;
+      }
+      
+      if (this.socket?.connected) {
+        console.log('✅ Socket already connected');
+        return;
+      }
 
-      this.socket = io(this.getSocketUrl(), {
+      const socketUrl = this.getSocketUrl();
+      console.log('🔄 Connecting to WebSocket:', socketUrl);
+
+      this.socket = io(socketUrl, {
         auth: { token },
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'], 
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
+        ...(USE_SSL && {
+          secure: true,
+          rejectUnauthorized: false, 
+        }),
       });
 
       this.setupEventHandlers();
@@ -65,18 +101,38 @@ class SocketService {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
+      console.log('✅ WebSocket connected successfully, ID:', this.socket?.id);
       this.reconnectAttempts = 0;
       this.messageDedupe.clear();
       this.emit('get_online_users');
     });
 
     this.socket.on('disconnect', (reason) => {
-      console.log('Socket disconnected:', reason);
+      console.log('🔌 Socket disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        setTimeout(() => this.connect(), 1000);
+      }
     });
 
     this.socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error.message);
+      console.error('❌ Socket connection error:', error.message);
       this.reconnectAttempts++;
+      
+      if (error.message.includes('401')) {
+        console.error('  → Authentication failed, token might be invalid');
+      } else if (error.message.includes('ECONNREFUSED')) {
+        console.error('  → Connection refused, server might be offline');
+      } else if (error.message.includes('xhr poll error')) {
+        console.error('  → Transport error, trying websocket only');
+      }
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Socket reconnected after ${attemptNumber} attempts`);
+    });
+
+    this.socket.on('reconnect_failed', () => {
+      console.error('❌ Socket reconnection failed after max attempts');
     });
 
     const events: (keyof SocketEventMap)[] = [
@@ -88,11 +144,18 @@ class SocketService {
 
     events.forEach((event) => {
       this.socket?.on(event, (data: any) => {
+        if (__DEV__) {
+          console.log(`📨 Socket event: ${event}`, data);
+        }
+        
         if (event === 'new_message') {
           const now = Date.now();
           const messageKey = data.id || data.tempId;
           
-          if (this.messageDedupe.has(messageKey)) return;
+          if (this.messageDedupe.has(messageKey)) {
+            console.log('⏭️ Duplicate message skipped:', messageKey);
+            return;
+          }
           if (now - this.lastMessageTime < 100) return;
           
           this.messageDedupe.add(messageKey);
@@ -108,6 +171,7 @@ class SocketService {
 
   disconnect(): void {
     if (this.socket) {
+      console.log('🔌 Disconnecting socket...');
       this.socket.disconnect();
       this.socket = null;
       this.messageDedupe.clear();
@@ -116,31 +180,54 @@ class SocketService {
   }
 
   joinChat(chatId: string): void {
-    this.socket?.connected && this.socket.emit('join_chat', chatId);
+    if (this.socket?.connected) {
+      this.socket.emit('join_chat', chatId);
+      if (__DEV__) console.log(`📢 Joined chat: ${chatId}`);
+    } else {
+      console.warn('⚠️ Cannot join chat - socket not connected');
+    }
   }
 
   leaveChat(chatId: string): void {
-    this.socket?.connected && this.socket.emit('leave_chat', chatId);
+    if (this.socket?.connected) {
+      this.socket.emit('leave_chat', chatId);
+      if (__DEV__) console.log(`📢 Left chat: ${chatId}`);
+    }
   }
 
   sendMessage(chatId: string, text: string, tempId: string): void {
-    this.socket?.connected && this.socket.emit('send_message', { chatId, text, tempId });
+    if (this.socket?.connected) {
+      this.socket.emit('send_message', { chatId, text, tempId });
+      if (__DEV__) console.log(`📤 Sending message to ${chatId}: ${text.substring(0, 20)}...`);
+    } else {
+      console.warn('⚠️ Cannot send message - socket not connected');
+    }
   }
 
   sendTyping(chatId: string, isTyping: boolean): void {
-    this.socket?.connected && this.socket.emit('typing', { chatId, isTyping });
+    if (this.socket?.connected) {
+      this.socket.emit('typing', { chatId, isTyping });
+    }
   }
 
   emit(event: string, data?: any): void {
-    this.socket?.connected && this.socket.emit(event, data);
+    if (this.socket?.connected) {
+      this.socket.emit(event, data);
+    } else {
+      console.warn(`⚠️ Cannot emit ${event} - socket not connected`);
+    }
   }
 
   markChatAsRead(chatId: string): void {
-    this.socket?.connected && this.socket.emit('mark_chat_read', chatId);
+    if (this.socket?.connected) {
+      this.socket.emit('mark_chat_read', chatId);
+    }
   }
 
   getUserStatus(userId: string): void {
-    this.socket?.connected && this.socket.emit('get_user_status', userId);
+    if (this.socket?.connected) {
+      this.socket.emit('get_user_status', userId);
+    }
   }
 
   on<K extends keyof SocketEventMap>(event: K, callback: SocketEventMap[K]): void {
