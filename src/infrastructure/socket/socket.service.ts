@@ -1,35 +1,23 @@
-// src/infrastructure/socket/socket.service.ts
 import io, { Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 
-const getServerConfig = () => {
+// Продакшн WebSocket URL (Render)
+const PRODUCTION_SOCKET_URL = 'wss://argon-backend-m52y.onrender.com';
+
+// Локальный WebSocket URL для разработки
+const DEVELOPMENT_SOCKET_URL = 'ws://192.168.1.199:3000';
+
+const getSocketUrl = (): string => {
   const isDevelopment = __DEV__;
   
-  if (!isDevelopment) {
-    return {
-      url: 'wss://argon-backend-ibt7.onrender.com',
-      isSecure: true,
-    };
+  if (isDevelopment) {
+    console.log('💻 Dev mode: Using local WebSocket:', DEVELOPMENT_SOCKET_URL);
+    return DEVELOPMENT_SOCKET_URL;
   }
   
-  const envIp = process.env.EXPO_PUBLIC_SERVER_IP;
-  const envPort = process.env.EXPO_PUBLIC_SERVER_PORT;
-  
-  if (envIp && envPort) {
-    return {
-      url: `http://${envIp}:${envPort}`,
-      isSecure: false,
-    };
-  }
-  
-  return {
-    url: 'http://192.168.1.199:3000',
-    isSecure: false,
-  };
+  console.log('🚀 Prod mode: Using Render WebSocket:', PRODUCTION_SOCKET_URL);
+  return PRODUCTION_SOCKET_URL;
 };
-
-const { url: SERVER_URL, isSecure: USE_SSL } = getServerConfig();
 
 export type SocketEventMap = {
   online_users: (users: string[]) => void;
@@ -55,12 +43,6 @@ class SocketService {
   private readonly messageDedupe = new Set<string>();
   private lastMessageTime = 0;
 
-  private getSocketUrl(): string {
-    // Для разных платформ URL одинаковый, убираем лишние проверки
-    console.log(`🔌 Using Socket URL: ${SERVER_URL} (SSL: ${USE_SSL})`);
-    return SERVER_URL;
-  }
-
   async connect(): Promise<void> {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -74,20 +56,24 @@ class SocketService {
         return;
       }
 
-      const socketUrl = this.getSocketUrl();
+      const socketUrl = getSocketUrl();
+      const isProduction = !__DEV__;
+      
       console.log('🔄 Connecting to WebSocket:', socketUrl);
+      console.log('🔐 Environment:', isProduction ? 'PRODUCTION' : 'DEVELOPMENT');
 
       this.socket = io(socketUrl, {
         auth: { token },
-        transports: ['websocket'], 
+        transports: ['websocket'], // Force WebSocket transport
         reconnection: true,
         reconnectionAttempts: this.maxReconnectAttempts,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
         timeout: 20000,
-        ...(USE_SSL && {
+        // Для продакшн (Render) используем secure connection
+        ...(isProduction && {
           secure: true,
-          rejectUnauthorized: false, 
+          rejectUnauthorized: false,
         }),
       });
 
@@ -110,6 +96,7 @@ class SocketService {
     this.socket.on('disconnect', (reason) => {
       console.log('🔌 Socket disconnected:', reason);
       if (reason === 'io server disconnect') {
+        // Сервер разорвал соединение, пробуем переподключиться
         setTimeout(() => this.connect(), 1000);
       }
     });
@@ -125,6 +112,10 @@ class SocketService {
       } else if (error.message.includes('xhr poll error')) {
         console.error('  → Transport error, trying websocket only');
       }
+      
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.error('  → Max reconnection attempts reached');
+      }
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
@@ -135,10 +126,20 @@ class SocketService {
       console.error('❌ Socket reconnection failed after max attempts');
     });
 
+    // Регистрация всех обработчиков событий
     const events: (keyof SocketEventMap)[] = [
-      'online_users', 'chat_created', 'new_message', 'user_joined',
-      'user_left', 'user_status', 'user_typing', 'message_error',
-      'message_sent', 'message_delivered', 'message_read', 'messages_read',
+      'online_users', 
+      'chat_created', 
+      'new_message', 
+      'user_joined',
+      'user_left', 
+      'user_status', 
+      'user_typing', 
+      'message_error',
+      'message_sent', 
+      'message_delivered', 
+      'message_read', 
+      'messages_read',
       'chat_marked_read'
     ];
 
@@ -148,6 +149,7 @@ class SocketService {
           console.log(`📨 Socket event: ${event}`, data);
         }
         
+        // Дедупликация сообщений (только для new_message)
         if (event === 'new_message') {
           const now = Date.now();
           const messageKey = data.id || data.tempId;
@@ -156,7 +158,11 @@ class SocketService {
             console.log('⏭️ Duplicate message skipped:', messageKey);
             return;
           }
-          if (now - this.lastMessageTime < 100) return;
+          
+          if (now - this.lastMessageTime < 100) {
+            console.log('⏭️ Message too fast, skipping duplicate');
+            return;
+          }
           
           this.messageDedupe.add(messageKey);
           this.lastMessageTime = now;
@@ -164,6 +170,7 @@ class SocketService {
           setTimeout(() => this.messageDedupe.delete(messageKey), 2000);
         }
         
+        // Вызов всех зарегистрированных слушателей
         this.emitEvent(event, data);
       });
     });

@@ -1,39 +1,27 @@
-// src/infrastructure/api/client.ts
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Получаем переменные окружения
-const getApiUrl = (): string => {
-  // Приоритет 1: Явно заданный в .env
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    console.log('📡 Using API URL from env:', process.env.EXPO_PUBLIC_API_URL);
-    return process.env.EXPO_PUBLIC_API_URL;
-  }
+// Продакшн URL (Render)
+const PRODUCTION_API_URL = 'https://argon-backend-m52y.onrender.com/api';
 
-  // Приоритет 2: Определяем по NODE_ENV
-  const isDevelopment = __DEV__; // React Native глобальная переменная
+// Локальный URL для разработки (измените IP на ваш)
+const DEVELOPMENT_API_URL = 'http://192.168.1.199:3000/api';
+
+const getApiUrl = (): string => {
+  const isDevelopment = __DEV__;
   
   if (isDevelopment) {
-    // Локальная разработка
-    const ip = process.env.EXPO_PUBLIC_SERVER_IP || '192.168.1.199';
-    const port = process.env.EXPO_PUBLIC_SERVER_PORT || '3000';
-    const url = `http://${ip}:${port}/api`;
-    console.log('💻 Dev mode API URL:', url);
-    return url;
-  } else {
-    // Production
-    const url = 'https://argon-backend-ibt7.onrender.com/api';
-    console.log('🚀 Prod mode API URL:', url);
-    return url;
+    // Режим разработки - используем локальный сервер
+    console.log('💻 Dev mode: Using local API');
+    return DEVELOPMENT_API_URL;
   }
+  
+  // Продакшн режим - используем Render
+  console.log('🚀 Prod mode: Using Render API:', PRODUCTION_API_URL);
+  return PRODUCTION_API_URL;
 };
 
 const API_URL = getApiUrl();
-
-interface ApiErrorResponse {
-  error?: string;
-  message?: string;
-}
 
 export const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
@@ -43,7 +31,7 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
-// Логируем все запросы в dev режиме
+// Логирование запросов в dev режиме
 if (__DEV__) {
   apiClient.interceptors.request.use(request => {
     console.log('📤 API Request:', request.method?.toUpperCase(), request.url);
@@ -56,12 +44,22 @@ if (__DEV__) {
       return response;
     },
     error => {
-      console.error('❌ API Error:', error.message);
+      if (error.response) {
+        console.error(`❌ API Error ${error.response.status}:`, error.config?.url);
+        console.error('  Response data:', error.response.data);
+      } else if (error.request) {
+        console.error('❌ API No Response:', error.config?.url);
+        console.error('  Error message:', error.message);
+        console.error('  Is server running? Check:', API_URL);
+      } else {
+        console.error('❌ API Request Error:', error.message);
+      }
       return Promise.reject(error);
     }
   );
 }
 
+// Добавление токена авторизации
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig): Promise<InternalAxiosRequestConfig> => {
     const token = await AsyncStorage.getItem('token');
@@ -73,16 +71,15 @@ apiClient.interceptors.request.use(
   (error: AxiosError) => Promise.reject(error)
 );
 
+// Обработка 401 ошибки (неавторизован)
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError<ApiErrorResponse>) => {
+  async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      console.log('🔐 Token expired, removing...');
+      console.log('🔐 Token expired or invalid, removing...');
       await AsyncStorage.removeItem('token');
+      await AsyncStorage.removeItem('user');
     }
-    
-    console.error(`❌ API Error: ${error.response?.status} ${error.config?.url}`);
-    
     return Promise.reject(error);
   }
 );
