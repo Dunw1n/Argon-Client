@@ -22,6 +22,7 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.argon.messenger",
       "enableProguardInReleaseBuilds": true,
+      "enableDangerousExperimentalLeanBuilds": true,
       "enableShrinkResources": true,
       "softwareKeyboardLayoutMode": "pan"
     },

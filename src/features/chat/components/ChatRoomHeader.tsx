@@ -2,114 +2,95 @@
 import { memo, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useUserStatus } from '../hooks';
 import { getMediaUrl } from '@/src/shared/utils';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useChatStore } from '@/src/infrastructure/store';
 
 interface ChatRoomHeaderProps {
-  chatName: string;
-  userId: string;
-  chatId: string;
-  avatar?: string | null;
   onInfoPress?: () => void;
 }
 
-export const ChatRoomHeader = memo(({ 
-  chatName, 
-  userId, 
-  chatId,
-  avatar,
-  onInfoPress 
-}: ChatRoomHeaderProps) => {
-
+export const ChatRoomHeader = memo(({ onInfoPress }: ChatRoomHeaderProps) => {
+  const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   
+  const currentChat = useChatStore(state => state.currentChat);
+  const user = useChatStore(state => state.user);
   
-  const { status } = useUserStatus(userId, chatId);
+  const otherParticipant = currentChat?.participants?.find(p => p.id !== user?.id);
+  
+  const chatName = otherParticipant?.name || 'Чат';
+  const avatar = otherParticipant?.avatar;
+  const userId = otherParticipant?.id || '';
+  
+  const { status } = useUserStatus(userId, id || '');
 
-  const handleBack = useCallback(() => {
-    router.back();
-  }, []);
-
-  const handleMenuPress = useCallback(() => {
-    onInfoPress?.();
-  }, [onInfoPress]);
-
+  const handleBack = useCallback(() => router.back(), []);
+  const handleMenuPress = useCallback(() => onInfoPress?.(), [onInfoPress]);
   const avatarLetter = chatName.charAt(0).toUpperCase();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 5 }]}>
+    <LinearGradient
+      colors={['rgba(255,255,255,1)', 'rgba(255,255,255,0)']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={[styles.gradient, { paddingTop: insets.top + 5}]}
+    >
       <View style={styles.content}>
-        <TouchableOpacity 
-          onPress={handleBack} 
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          <BlurView intensity={100} tint="light" style={styles.blurWrapper}>
-            <Ionicons name="arrow-back" size={22} color="#333" />
-          </BlurView>
+        <TouchableOpacity onPress={handleBack} style={styles.iconButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={22} color="#333" />
         </TouchableOpacity>
         
         <TouchableOpacity 
           onPress={() => router.push(`/user-profile?id=${userId}`)} 
-          style={styles.centerBlock}
+          style={styles.centerBlock} 
           activeOpacity={0.7}
         >
-          <BlurView intensity={100} tint="light" style={styles.centerBlur}>
-            <View style={styles.centerContent}>
-              {avatar ? (
-                <Image source={{ uri: getMediaUrl(avatar) }} style={styles.avatar} />
-              ) : (
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{avatarLetter}</Text>
-                </View>
-              )}
-              <View style={styles.userTextInfo}>
-                <Text style={styles.userName} numberOfLines={1}>
-                  {chatName}
-                </Text>
-                <Text style={[styles.status, { color: status.color }]}>
-                  {status.text}
-                </Text>
-              </View>
+          {avatar ? (
+            <Image source={{ uri: getMediaUrl(avatar) }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{avatarLetter}</Text>
             </View>
-          </BlurView>
+          )}
+          <View style={styles.userTextInfo}>
+            <Text style={styles.userName} numberOfLines={1}>{chatName}</Text>
+            <Text style={[styles.status, { color: status.color }]}>{status.text}</Text>
+          </View>
         </TouchableOpacity>
         
-        <TouchableOpacity 
-          onPress={handleMenuPress} 
-          style={styles.iconButton}
-          activeOpacity={0.7}
-        >
-          <BlurView intensity={100} tint="light" style={styles.blurWrapper}>
-            <Ionicons name="ellipsis-vertical" size={22} color="#333" />
-          </BlurView>
+        <TouchableOpacity onPress={handleMenuPress} style={styles.iconButton} activeOpacity={0.7}>
+          <Ionicons name="ellipsis-vertical" size={22} color="#333" />
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 });
 
 ChatRoomHeader.displayName = 'ChatRoomHeader';
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'transparent',
+  gradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
   },
   content: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 10,
   },
   iconButton: {
-    borderRadius: 24,
     overflow: 'hidden',
-  },
-  blurWrapper: {
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -117,23 +98,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 0.5,
     borderColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   centerBlock: {
     flex: 1,
     overflow: 'hidden',
-    borderRadius: 30,
-  },
-  centerBlur: {
     borderRadius: 40,
-    overflow: 'hidden',
-  },
-  centerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
     minHeight: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
   },
   avatar: {
     width: 36,
@@ -142,11 +119,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#8b5cf6',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  avatarImage: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
   },
   avatarText: {
     fontSize: 16,

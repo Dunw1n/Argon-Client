@@ -7,7 +7,7 @@ export interface Message {
   text: string;
   sender_id: string;
   chat_id: string;
-  created_at?: string;
+  created_at: string;
   createdAt?: string;
   isPending?: boolean;
   isError?: boolean;

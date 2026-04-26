@@ -50,7 +50,7 @@ export const BottomTabBar = memo(() => {
 
   return (
     <>
-      <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      <View style={[styles.container, { paddingBottom: insets.bottom + 5 }]}>
         <View style={styles.content}>
           {tabs.map((tab) => (
             <TouchableOpacity

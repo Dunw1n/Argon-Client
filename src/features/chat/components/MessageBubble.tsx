@@ -1,14 +1,11 @@
-// src/features/chat/components/MessageBubble.tsx
-import { memo, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
+import { memo } from 'react';
+import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { useAuthStore } from '@/src/infrastructure/store';
-import { formatMessageTime } from '@/src/shared/utils';
 import { StatusIcon } from './StatusIcon';
 import type { Message } from '@/src/core/entities';
 
 const { width: screenWidth } = Dimensions.get('window');
 const MAX_WIDTH = screenWidth * 0.75;
-const MIN_WIDTH = 50;
 
 interface MessageBubbleProps {
   message: Message;
@@ -16,86 +13,38 @@ interface MessageBubbleProps {
 
 export const MessageBubble = memo(({ message }: MessageBubbleProps) => {
   const userId = useAuthStore(state => state.user?.id);
+  const isOwn = message.sender_id === userId;
+  const isPending = message.isPending === true;
   
-  const isOwn = useMemo(() => message.sender_id === userId, [message.sender_id, userId]);
-  const isPending = useMemo(() => message.isPending === true, [message.isPending]);
-  
-  const opacityAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacityAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 7,
-        tension: 35,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [opacityAnim, scaleAnim]);
-
-  const formattedTime = useMemo(() => {
-    const date = new Date(message.created_at);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }, [message.created_at]);
+  const formattedTime = new Date(message.created_at).toLocaleTimeString([], { 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  });
 
   return (
-    <Animated.View 
-      style={[
-        styles.container, 
-        isOwn && styles.ownContainer,
-        {
-          opacity: opacityAnim,
-          transform: [{ scale: scaleAnim }]
-        }
-      ]}
-    >
-      <View
-        style={[
-          styles.bubble,
-          isOwn ? styles.ownBubble : styles.otherBubble,
-          isPending && styles.pendingBubble,
-        ]}
-      >
+    <View style={[styles.container, isOwn && styles.ownContainer]}>
+      <View style={[
+        styles.bubble,
+        isOwn ? styles.ownBubble : styles.otherBubble,
+        isPending && styles.pendingBubble,
+      ]}>
         <Text style={[styles.text, isOwn && styles.ownText]}>
           {message.text}
         </Text>
         
         <View style={[styles.bottomRow, isOwn && styles.bottomRowOwn]}>
-          {!isOwn && (
-            <Text style={[styles.time, styles.otherTime]}>
-              {formattedTime}
-            </Text>
-          )}
+          {!isOwn && <Text style={styles.otherTime}>{formattedTime}</Text>}
           
-          <View style={styles.rightGroup}>
-            {isOwn && (
-              <Text style={[styles.time, styles.ownTime]}>
-                {formattedTime}
-              </Text>
-            )}
-            
-            {isOwn && (
-              <View style={styles.statusContainer}>
-                <StatusIcon status={message.status} isPending={isPending} />
-              </View>
-            )}
-          </View>
+          {isOwn && (
+            <>
+              <Text style={styles.ownTime}>{formattedTime}</Text>
+              <StatusIcon status={message.status} isPending={isPending} />
+            </>
+          )}
         </View>
       </View>
-    </Animated.View>
+    </View>
   );
-}, (prevProps, nextProps) => {
-  return prevProps.message.id === nextProps.message.id &&
-         prevProps.message.text === nextProps.message.text &&
-         prevProps.message.status === nextProps.message.status &&
-         prevProps.message.isPending === nextProps.message.isPending &&
-         prevProps.message.created_at === nextProps.message.created_at;
 });
 
 MessageBubble.displayName = 'MessageBubble';
@@ -103,7 +52,6 @@ MessageBubble.displayName = 'MessageBubble';
 const styles = StyleSheet.create({
   container: {
     marginVertical: 4,
-    alignItems: 'flex-start',
     paddingHorizontal: 8,
   },
   ownContainer: {
@@ -111,7 +59,6 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: MAX_WIDTH,
-    minWidth: MIN_WIDTH,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 10,
@@ -128,6 +75,8 @@ const styles = StyleSheet.create({
   otherBubble: {
     backgroundColor: '#f1f3f5',
     borderBottomLeftRadius: 4,
+
+    alignSelf: 'flex-start',
   },
   pendingBubble: {
     backgroundColor: '#a78bfa',
@@ -137,7 +86,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     color: '#1a1a1a',
-    flexShrink: 1,
   },
   ownText: {
     color: '#ffffff',
@@ -145,30 +93,23 @@ const styles = StyleSheet.create({
   bottomRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between', // Меняем на space-between
+    marginTop: 2,
   },
   bottomRowOwn: {
-    justifyContent: 'flex-end', // Для своих сообщений время справа
-  },
-  rightGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    justifyContent: 'flex-end',
   },
   time: {
     fontSize: 10,
-    letterSpacing: 0.2,
   },
   ownTime: {
     color: 'rgba(255, 255, 255, 0.75)',
+    marginRight: 4,
+    fontSize: 10,
   },
   otherTime: {
     color: '#8e8e93',
-  },
-  statusContainer: {
-    width: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 10,
   },
 });
+
+export default MessageBubble;
